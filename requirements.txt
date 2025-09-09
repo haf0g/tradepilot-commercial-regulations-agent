@@ -1,0 +1,36 @@
+ 
+# Core dependencies (align with notebook versions if critical)
+langchain==0.3.7 # Use specific version if needed
+langchain-community==0.3.7
+pymupdf # fitz
+faiss-cpu # or faiss-gpu if you have CUDA
+sentence-transformers==3.3.1
+transformers==4.44.2
+torch==2.5.1 # Use appropriate version for your system
+groq==0.31.1
+gradio==5.9.1
+rank-bm25 # For BM25Retriever if not using langchain_community version directly
+httpx==0.28.1
+playwright==1.55.0
+
+# For data scrapping/integration
+#requests 
+#beautifulsoup4
+
+# Pour l'agent
+langgraph # 
+
+
+# Pour l'API (si vous voulez une API REST)
+# fastapi
+# uvicorn
+
+# Pour le parsing d'info
+# spacy # Pour NER avancé (optionnel)
+
+# Testing
+pytest==8.3.4
+
+# Optional (if using local Qwen model - adjust versions)
+# accelerate # From notebook
+# bitsandbytes # For quantization (if used)
