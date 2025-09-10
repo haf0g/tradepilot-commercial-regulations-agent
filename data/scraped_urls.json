@@ -1,0 +1,14 @@
+[
+    {
+        "original_url": "https://findrulesoforigin.org/documents/pdf/itc00396_coo.pdf",
+        "local_path": "/mnt/c/Users/hp/Downloads/myrag_app/data/pdfs/document_1.pdf"
+    },
+    {
+        "original_url": "https://findrulesoforigin.org/documents/pdf/itc00396_roo.pdf",
+        "local_path": "/mnt/c/Users/hp/Downloads/myrag_app/data/pdfs/document_2.pdf"
+    },
+    {
+        "original_url": "https://findrulesoforigin.org/documents/pdf/itc00396_full.pdf",
+        "local_path": "/mnt/c/Users/hp/Downloads/myrag_app/data/pdfs/document_3.pdf"
+    }
+]

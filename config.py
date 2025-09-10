@@ -17,6 +17,9 @@ FAISS_INDEX_PATH = PROJECT_ROOT / "retrieval" / "faiss_index"
 # BM25 (if persisted)
 BM25_MODEL_PATH = PROJECT_ROOT / "retrieval" / "bm25_model.pkl"
 
+# File where PDF's SHA Signature is saved
+PDFS_SIGNATURE_PATH = PROJECT_ROOT / "retrieval" / "last_pdfs_signature.txt"
+
 # Retriever
 ENSEMBLE_WEIGHTS = [0.6, 0.4] # FAISS, BM25
 RETRIEVER_K = 6 # Number of documents to retrieve
@@ -59,3 +62,4 @@ Document: [Filename]
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 FAISS_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
 BM25_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+PDFS_SIGNATURE_PATH.parent.mkdir(parents=True, exist_ok=True) # <-- Ajout

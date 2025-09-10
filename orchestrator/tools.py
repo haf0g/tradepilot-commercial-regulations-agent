@@ -340,11 +340,11 @@ def run_scraper_tool(state: Dict[str, Any]) -> Dict[str, Any]:
     # Prioriser le HS code
     product = extracted_info.get("hs_code", "") or extracted_info.get("product", "")
     
-    # --- Ajout: Gestion des placeholders ---
+    # --- Gestion des placeholders ---
     # Si l'exporter ou l'importer est un placeholder, on peut soit :
     # 1. Tenter le scraping avec une valeur par défaut
     # 2. Arrêter et expliquer
-    # Ici, on tente avec une valeur par défaut (exemple arbitraire)
+    # Ici, on tente avec une valeur par défaut
     if "usmca" in exporter.lower():
         logger.info("Replacing USMCA exporter placeholder with USA for scraping.")
         exporter = "United States Of America"
@@ -357,7 +357,6 @@ def run_scraper_tool(state: Dict[str, Any]) -> Dict[str, Any]:
     if "eu" in importer.lower() or "european union" in importer.lower():
         logger.info("Replacing EU importer placeholder with France for scraping.")
         importer = "France"
-    # --- Fin de l'ajout ---
 
     if not exporter or not importer or not product:
         error_msg = f"Missing information for scraping: Exporter='{exporter}', Importer='{importer}', Product/HS='{product}'"
@@ -366,14 +365,22 @@ def run_scraper_tool(state: Dict[str, Any]) -> Dict[str, Any]:
 
     logger.info(f"Running scraper for {exporter} -> {importer} ({product})")
     try:
-        scrape_trade_pdfs(exporter, importer, product, output_dir="data")
+        urls_mapping_file_path = scrape_trade_pdfs(exporter, importer, product, output_dir="data")
         success_msg = f"Successfully scraped documents for {exporter} -> {importer} ({product})."
         logger.info(success_msg)
-        return {"scraping_status": success_msg}
+        return {
+            "scraping_status": success_msg,
+            "urls_mapping_file": urls_mapping_file_path # Nouvelle clé dans le dictionnaire de retour
+        }
+
     except Exception as e:
         error_msg = f"Error during scraping: {e}"
         logger.error(error_msg)
-        return {"scraping_status": error_msg}
+        # --- Modification : Retourner aussi le chemin en cas d'erreur (probablement None ou un chemin invalide) ---
+        return {
+            "scraping_status": error_msg,
+            "urls_mapping_file": None # Ou une valeur par défaut
+        }
 
 # --- Outil 3: Mise à Jour du RAG ---
 def update_rag_knowledge_base(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -392,7 +399,7 @@ def update_rag_knowledge_base(state: Dict[str, Any]) -> Dict[str, Any]:
         documents = clean_documents(documents)
 
         vsm = VectorStoreManager(config)
-        vsm._build_store(documents) # Reconstruire à partir des nouveaux docs
+        vsm.build_or_load_store(documents) # Reconstruire à partir des nouveaux docs
         
         msg = f"RAG knowledge base updated with {len(documents)} document chunks."
         logger.info(msg)
