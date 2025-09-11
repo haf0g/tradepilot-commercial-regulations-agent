@@ -19,26 +19,14 @@ def process_hs_data(input_filepath: str, output_filepath: str):
         for item in raw_hs_list:
             item_id = item.get('id')
             full_text = item.get('text', '')
-            # Only consider leaf nodes (most specific codes) for matching, if desired
-            # is_leaf = item.get('isLeaf') == '1' # Optional filter
-
+           
             # Extract description part (after the ' - ')
             description = full_text
             if ' - ' in full_text:
                 description = full_text.split(' - ', 1)[1]
 
-            # Optional: Filter out non-leaf items or aggregates if they are not useful for matching
-            # if not is_leaf or item_id == "TOTAL":
-            #     continue
-
-            # Optional: Filter by aggregation level (aggrlevel 6 is quite specific)
-            # if item.get('aggrlevel') != 6: # Or maybe <= 6 for a broader match
-            #     continue
-
-            if item_id and description: # Ensure we have both parts
-                # Store as a dictionary or a tuple (description, id)
+            if item_id and description: 
                 processed_data.append({'id': item_id, 'description': description})
-                # Or simpler: processed_data.append((description, item_id))
 
         # Save the processed data
         with open(output_filepath, 'w', encoding='utf-8') as f_out:

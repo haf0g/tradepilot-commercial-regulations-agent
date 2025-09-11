@@ -21,12 +21,12 @@ playwright==1.55.0
 langgraph # 
 
 
-# Pour l'API (si vous voulez une API REST)
+# Pour l'API
 # fastapi
 # uvicorn
 
 # Pour le parsing d'info
-# spacy # Pour NER avancé (optionnel)
+# spacy # Pour NER avancé
 
 # Testing
 pytest==8.3.4

@@ -6,7 +6,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent
 
 # Data
-DATA_DIR = PROJECT_ROOT / "data" / "pdfs" # Place your PDFs here
+DATA_DIR = PROJECT_ROOT / "data" / "pdfs"
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 150
 
@@ -62,4 +62,4 @@ Document: [Filename]
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 FAISS_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
 BM25_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
-PDFS_SIGNATURE_PATH.parent.mkdir(parents=True, exist_ok=True) # <-- Ajout
+PDFS_SIGNATURE_PATH.parent.mkdir(parents=True, exist_ok=True) 

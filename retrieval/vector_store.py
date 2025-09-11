@@ -74,9 +74,6 @@ class VectorStoreManager:
         if not documents:
             logger.warning("No documents provided to build index. Index will be empty.")
             # On crée un index vide
-            # FAISS nécessite au moins un document, gérons ce cas.
-            # Une approche est de créer un document factice ou de ne pas créer d'index.
-            # Pour l'instant, on logge et on sort.
             self.db = None
             self.bm25_retriever = None
             # Sauvegarder quand même la signature pour le prochain run

@@ -1,146 +1,98 @@
 # orchestrator/workflow.py
-"""Définition du workflow LangGraph pour l'agent agentic."""
-
 import logging
-from typing import Annotated
+from typing import Annotated, Dict, Any, Literal
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langgraph.checkpoint.memory import MemorySaver # Pour la persistance de l'état
+from langgraph.checkpoint.memory import MemorySaver
 
-# Importer les outils
 from orchestrator.tools import (
     extract_trade_info,
     run_scraper_tool,
     update_rag_knowledge_base,
-    query_rag,
-    route_based_on_extraction,
-    route_after_scraping,
-    route_after_rag_update
+    generate_final_response 
 )
-from models.llm_client import get_llm_client
-import config
 
 logger = logging.getLogger(__name__)
 
 # --- Définition de l'État ---
-# L'état partagé entre tous les nœuds du graphe
 class GraphState(TypedDict):
-    # Entrée utilisateur
     user_query: str
-    
-    # LLM Client (passé pour les outils qui en ont besoin)
-    llm_client: object # Instance de GroqModelClient
-    
-    # Résultats intermédiaires
     extracted_info: dict
     scraping_status: str
-    rag_update_status: str
-    
-    # Sortie finale
+    scraping_success: bool 
+    mfn_data_available: bool # indicateur pour MFN
+    rag_documents_count: int # nombre de documents chargés
     final_answer: str
-    
-    # Pour gérer les erreurs (optionnel)
-    error: str
 
-# --- Fonctions des Nœuds ---
-# Chaque nœud est une fonction qui prend l'état et renvoie un dictionnaire
-# de mises à jour à appliquer à l'état.
-
+# --- Fonctions des Nœuds $ ---
 def node_extract_info(state: GraphState) -> dict:
-    """Nœud pour extraire les informations."""
     logger.info("Executing: Extract Info Node")
-    # L'état est passé à l'outil
     result = extract_trade_info(state)
-    # Le résultat de l'outil est un dict qui sera fusionné dans l'état
     return result
 
 def node_scrape_pdfs(state: GraphState) -> dict:
-    """Nœud pour scraper les PDFs."""
     logger.info("Executing: Scrape PDFs Node")
     result = run_scraper_tool(state)
-    return result
+    # On détermine si le scraping est un "succès" (même s'il n'y a pas de PDFs)
+    # en vérifiant le message de statut ou en vérifiant l'existence de mfn_data.json
+    import os
+    scraping_status = result.get("scraping_status", "")
+    scraping_success = "Successfully scraped" in scraping_status or "No documents were found" in scraping_status
+    mfn_available = os.path.exists("data/mfn_data.json") # Vérification simple
+    return {**result, "scraping_success": scraping_success, "mfn_data_available": mfn_available}
 
 def node_update_rag(state: GraphState) -> dict:
-    """Nœud pour mettre à jour le RAG."""
     logger.info("Executing: Update RAG Node")
     result = update_rag_knowledge_base(state)
-    return result
+    # On peut compter les documents ou vérifier le statut
+    # Pour cet exemple, on met un indicateur simple.
+    rag_status = result.get("rag_update_status", "")
+    docs_count = 0 
+    if "updated" in rag_status.lower():
+        docs_count = 1 
+    return {**result, "rag_documents_count": docs_count}
 
-def node_query_rag(state: GraphState) -> dict:
-    """Nœud pour interroger le RAG."""
-    logger.info("Executing: Query RAG Node")
-    result = query_rag(state)
-    return result
+# --- Fonctions de Routage ---
+def route_after_extraction(state: GraphState) -> Literal["scrape_pdfs", "__end__"]:
+    # Vérifie si l'extraction était suffisante
+    if state.get("extracted_info") and not state.get("error"):
+        return "scrape_pdfs"
+    return "__end__" # Ou un nœud d'erreur
+
+def route_after_scraping(state: GraphState) -> Literal["update_rag", "generate_final_response"]:
+    # Si le scraping (incluant MFN) a été tenté, on passe à la suite
+    # La décision finale se fera dans generate_final_response
+    if state.get("scraping_success"):
+        return "update_rag"
+    # Si échec critique du scraping, on pourrait aller à une erreur
+    # Pour cet exemple, on considère qu'on continue pour vérifier RAG/MFN
+    return "update_rag" 
 
 # --- Construction du Graphe ---
 def create_workflow():
-    """Crée et compile le graphe LangGraph."""
-    logger.info("Creating LangGraph workflow...")
-
-    # 1. Créer le graphe avec l'état défini
+    logger.info("Creating LangGraph workflow (Agentic style)...")
     workflow = StateGraph(GraphState)
 
-    # 2. Ajouter les nœuds (états/étapes)
     workflow.add_node("extract_info", node_extract_info)
     workflow.add_node("scrape_pdfs", node_scrape_pdfs)
     workflow.add_node("update_rag", node_update_rag)
-    workflow.add_node("query_rag", node_query_rag)
-    # Vous pouvez ajouter un nœud 'error_handler' si nécessaire
+    workflow.add_node("generate_final_response", generate_final_response)
 
-    # 3. Définir les arêtes (transitions)
-    
-    # Du point de départ à l'extraction
     workflow.add_edge(START, "extract_info")
-    
-    # De l'extraction au scraping ou à l'erreur
-    # Utiliser une fonction de routage
-    workflow.add_conditional_edges(
-        "extract_info",
-        route_based_on_extraction,
-        {
-            "scrape": "scrape_pdfs",
-            "error": END # Ou un nœud d'erreur
-        }
-    )
-    
-    # Du scraping à la mise à jour du RAG ou à l'erreur
-    workflow.add_conditional_edges(
-        "scrape_pdfs",
-        route_after_scraping,
-        {
-            "update_rag": "update_rag",
-            "error": END # Ou retour à extract_info
-        }
-    )
-    
-    # De la mise à jour du RAG à l'interrogation du RAG ou à l'erreur
-    workflow.add_conditional_edges(
-        "update_rag",
-        route_after_rag_update,
-        {
-            "query_rag": "query_rag",
-            "error": END
-        }
-    )
-    
-    # De l'interrogation du RAG à la fin
-    workflow.add_edge("query_rag", END)
-    
-    # 4. Compiler le graphe
-    # MemorySaver permet de conserver l'état entre les exécutions (utile pour une session)
-    # Pour une exécution unique, cela peut ne pas être nécessaire.
+    workflow.add_conditional_edges("extract_info", route_after_extraction)
+    workflow.add_edge("scrape_pdfs", "update_rag")
+    # Tous les chemins après update_rag vont vers la réponse finale
+    workflow.add_edge("update_rag", "generate_final_response")
+    workflow.add_edge("generate_final_response", END)
+
     memory = MemorySaver()
-    app = workflow.compile(checkpointer=memory) 
-    
-    logger.info("LangGraph workflow created and compiled.")
+    app = workflow.compile(checkpointer=memory)
+    logger.info("LangGraph workflow (Agentic) created and compiled.")
     return app
 
-# --- Instance Singleton ---
 _workflow_app = None
-
 def get_workflow_app():
-    """Fournit une instance singleton du workflow compilé."""
     global _workflow_app
     if _workflow_app is None:
         _workflow_app = create_workflow()

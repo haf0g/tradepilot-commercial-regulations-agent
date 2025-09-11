@@ -1,5 +1,5 @@
 # core/analyzer.py
-from models.llm_client import get_llm_client # Import the factory/client
+from models.llm_client import get_llm_client # Import the client
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,12 +14,11 @@ class LegalDocumentAnalyzer:
 
     def ask(self, question: str) -> str:
         """Simple method to ask a question and get an answer."""
-        # --- Ajout: Vérification du retriever ---
+        # --- Vérification du retriever ---
         if self.retriever is None:
             error_msg = "The RAG system is not ready (retriever is None). Indexes might be missing or failed to load."
             logger.error(error_msg)
             return error_msg
-        # --- Fin de l'ajout ---
         
         try:
             # Get context from retriever
@@ -60,12 +59,9 @@ Please provide a clear, helpful answer based on this information."""}
                     title = doc.metadata.get('title', 'Unknown Title')
                     source = doc.metadata.get('source', 'Unknown Source')
                     page = doc.metadata.get('page', 'N/A')
-                    # --- Nouveau : Récupérer l'URL originale ---
                     original_url = doc.metadata.get('original_url', None)
-                    # --- Fin du nouveau ---
                     
                     # Construire la partie du contexte
-                    # --- Modification : Inclure le lien dans le texte du contexte ---
                     source_info = f"Document: {title} (Source: {source}, Page: {page})"
                     if original_url:
                          # Vous pouvez formater le lien comme vous voulez.
@@ -76,9 +72,8 @@ Please provide a clear, helpful answer based on this information."""}
                          # Option 3 : Format simple pour le LLM
                          source_info += f" (URL: {original_url})"
                          
-                    context_part = f"{source_info}\nContent: {doc.page_content[:500]}..." # Limiter la longueur du contenu
+                    context_part = f"{source_info}\nContent: {doc.page_content[:500]}..." 
                     context_parts.append(context_part)
-                    # --- Fin de la modification ---
                 else:
                     context_parts.append(str(doc))
 

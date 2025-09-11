@@ -1,7 +1,6 @@
 # app.py
 import os
 import logging
-# Importer config pour vérifier la clé API
 import config 
 # Importer uniquement ce qui est nécessaire pour l'interface
 from ui.interface import create_interface

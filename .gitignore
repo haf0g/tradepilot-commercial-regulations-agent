@@ -9,6 +9,8 @@ rerieval/faiss_index
 pqock_env
 
 orchestrator/__pycache__
+orchestrator/agent-old.py
+orchestrator/workflow-old.py
 
 models/__pycache__
 
@@ -16,9 +18,12 @@ data/__pycache__
 
 core/__pycache__
 
+scraper/web_scraper-old.py
+
 .vscode
 
 .pytest_cache
+test_openai.py
 
 .gradio
 

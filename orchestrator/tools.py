@@ -1,16 +1,14 @@
 # orchestrator/tools.py 
 """Définition des outils (fonctions) utilisables par l'agent agentic (LangGraph)"""
-
+import os
 import logging
 from typing import Dict, Any
-# Importations depuis votre application
 from scraper.web_scraper import scrape_trade_pdfs, clean_pdfs_folder 
-
 from data.loader import load_and_split_pdfs, clean_documents
 from retrieval.vector_store import VectorStoreManager
 from core.analyzer import LegalDocumentAnalyzer
 from models.llm_client import get_llm_client
-import config # Pour accéder aux configurations
+import config 
 import csv
 import json
 from pathlib import Path
@@ -47,7 +45,6 @@ except Exception as e:
     COUNTRY_MAP = {}
     COUNTRY_NAME_TO_CODE = {}
 
-# --- Nouvelle fonction utilitaire ---
 def find_hs_code_for_product(product_name: str) -> str:
     """Trouve un code HS basé sur le nom du produit."""
     if not product_name or not HS_DATA:
@@ -57,126 +54,8 @@ def find_hs_code_for_product(product_name: str) -> str:
         if product_name.lower() in desc.lower():
             return item.get("id", "")
     return ""
-'''
-# --- Outil 1: Extraction d'Informations ---
-def extract_trade_info(state: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Extrait les informations de pays et de produit/HS code de la requête utilisateur.
-    Input: {'user_query': str}
-    Output: {'extracted_info': Dict}
-    """
-    user_query = state.get("user_query", "")
-    # Obtenir le client LLM localement
-    try:
-        llm_client = get_llm_client(config)
-    except Exception as e:
-        logger.error(f"Failed to initialize LLM client inside tool: {e}")
-        return {"error": f"LLM Client init failed: {e}", "extracted_info": {}}
-    
-    if not user_query:
-        logger.error("No user query provided for extraction.")
-        return {"error": "No user query provided for extraction."}
 
-    logger.info(f"Extracting trade info from query: '{user_query}'")
-    # --- Prompt Amélioré ---
-    # Plus direct, insiste sur l'ordre Export -> Import -> Produit/HS
-    # et sur la vérification de la présence des informations.
-    extraction_prompt = f"""
-You are an expert in international trade data extraction. Your task is to identify the Exporting Country, Importing Country, and Product/HS Code from the user's query.
-
-Guidelines:
-1.  The Exporting Country is the one FROM which goods are sent.
-2.  The Importing Country is the one TO which goods are sent.
-3.  Identify a Product name or a specific HS Code (e.g., 07099200).
-4.  If an HS Code is mentioned, prioritize it over a general product name.
-5.  Be concise and extract only the names/codes.
-6.  If you cannot confidently identify a piece of information, leave its field as an empty string ("").
-7.  Double-check the countries' names for common aliases (e.g., USA/United States, UK/United Kingdom).
-
-Query: {user_query}
-
-Provide the answer in the following strict JSON format:
-{{
-  "exporter": "Country Name", // E.g., "Morocco"
-  "importer": "Country Name", // E.g., "United States Of America"
-  "product": "Product Name",  // E.g., "olives"
-  "hs_code": "HS Code"        // E.g., "07099200" (can be empty if not found)
-}}
-
-Example Output:
-{{
-  "exporter": "Morocco",
-  "importer": "United States Of America",
-  "product": "olives",
-  "hs_code": "07099200"
-}}
-
-Do not include any other text, explanations, or markdown. Only output the JSON.
-"""
-    messages = [
-        {"role": "system", "content": "You are a precise data extraction tool."},
-        {"role": "user", "content": extraction_prompt}
-    ]
-    
-    try:
-        raw_response = llm_client.generate(messages, max_tokens=300, temperature=0.1) # Un peu plus de tokens
-        import json
-        try:
-            data = json.loads(raw_response)
-            logger.info(f"Extracted info: {data}")
-            
-            # --- Validation basique ---
-            # Vérifier si les champs critiques ne sont pas que des espaces
-            exporter_raw = data.get("exporter", "").strip()
-            importer_raw = data.get("importer", "").strip()
-
-            # Fonction d'aide pour trouver un nom de pays valide
-            def find_valid_country_name(raw_name):
-                if not raw_name:
-                    return ""
-                raw_lower = raw_name.lower()
-                # Recherche exacte d'abord
-                if raw_lower in COUNTRY_MAP:
-                    return COUNTRY_MAP[raw_lower]
-                # Recherche partielle (plus complexe, exemple simplifié)
-                # for key, value in COUNTRY_MAP.items():
-                #     if raw_lower in key or raw_lower in value.lower():
-                #         return value
-                return raw_name # Retourne le nom original si non trouvé
-            
-            data["exporter"] = find_valid_country_name(exporter_raw)
-            data["importer"] = find_valid_country_name(importer_raw)
-
-            product_or_hs = (data.get("hs_code", "") or data.get("product", "")).strip()
-            
-            product_name = data.get("product", "").strip()
-            hs_code = data.get("hs_code", "").strip()
-            if not hs_code and product_name and HS_DATA:
-                # Recherche simple : trouver le premier code qui contient le nom du produit
-                # Une recherche plus sophistiquée (TF-IDF, fuzzy matching) serait meilleure
-                for item in HS_DATA:
-                    desc = item.get("description", "")
-                    if product_name.lower() in desc.lower():
-                        data["hs_code"] = item.get("id", "")
-                        logger.info(f"Found HS code {data['hs_code']} for product '{product_name}' based on description '{desc}'")
-                        # Vous pouvez choisir de breaker ici ou de continuer pour trouver un match plus précis
-                        break
-
-                # On peut choisir de renvoyer une erreur ici pour forcer un routage différent
-                # ou laisser le routage gérer ça.
-                # Pour l'instant, on retourne les données extraites, même incomplètes.
-                # Le routage devra être plus intelligent.
-            
-            return {"extracted_info": data}
-        except json.JSONDecodeError:
-            logger.error(f"LLM response was not valid JSON: {raw_response}")
-            return {"error": "Failed to parse extracted information as JSON.", "extracted_info": {}}
-    except Exception as e:
-        logger.error(f"Error in extract_trade_info: {e}")
-        return {"error": f"Error during extraction: {e}", "extracted_info": {}}
-'''
-
-# --- Mise à jour de extract_trade_info ---
+# --- Extract_trade_info ---
 def extract_trade_info(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extrait les informations de pays et de produit/HS code de la requête utilisateur.
@@ -195,7 +74,7 @@ def extract_trade_info(state: Dict[str, Any]) -> Dict[str, Any]:
 
     logger.info(f"Extracting trade info from query: '{user_query}'")
     
-    # --- Prompt Amélioré avec gestion des accords ---
+    # --- Prompt avec gestion des accords ---
     extraction_prompt = f"""
 You are an expert in international trade data extraction. Your task is to identify the Exporting Country, Importing Country, and Product/HS Code from the user's query.
 
@@ -242,7 +121,6 @@ Example Output for an agreement query:
 
 Do not include any other text, explanations, or markdown. Only output the JSON.
 """
-    # --- Fin du Prompt Amélioré ---
     
     messages = [
         {"role": "system", "content": "You are a precise data extraction tool."},
@@ -301,7 +179,6 @@ Do not include any other text, explanations, or markdown. Only output the JSON.
             if (exporter or importer) and product_or_hs:
                  # On considère que l'extraction est suffisante si on a un pays ET un produit/code
                  # Même si un pays est manquant, le scraper/RAG pourra peut-être gérer
-                 # On met un indicateur dans l'état
                  data["extraction_status"] = "partial_but_usable"
                  logger.info(f"Extraction usable (partial): exporter='{exporter}', importer='{importer}', product/hs='{product_or_hs}'")
             elif exporter and importer and product_or_hs:
@@ -370,13 +247,13 @@ def run_scraper_tool(state: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(success_msg)
         return {
             "scraping_status": success_msg,
-            "urls_mapping_file": urls_mapping_file_path # Nouvelle clé dans le dictionnaire de retour
+            "urls_mapping_file": urls_mapping_file_path 
         }
 
     except Exception as e:
         error_msg = f"Error during scraping: {e}"
         logger.error(error_msg)
-        # --- Modification : Retourner aussi le chemin en cas d'erreur (probablement None ou un chemin invalide) ---
+        # --- Retourner aussi le chemin en cas d'erreur (probablement None ou un chemin invalide) ---
         return {
             "scraping_status": error_msg,
             "urls_mapping_file": None # Ou une valeur par défaut
@@ -425,7 +302,61 @@ def query_rag(state: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"Querying RAG with question: '{user_question}'")
     try:
         vsm = VectorStoreManager(config)
-        vsm.build_or_load_store([]) # Charger les index existants
+        vsm.build_or_load_store([]) 
+        
+        if vsm.ensemble_retriever is None:
+            logger.warning("RAG retriever is not available.")
+            # --- Chercher les données MFN ---
+            mfn_data_file = config.DATA_DIR.parent / 'mfn_data.json' # Chemin: data/mfn_data.json
+            logger.debug(f"Checking for MFN data file at: {mfn_data_file}")
+            if mfn_data_file.exists():
+                try:
+                    with open(mfn_data_file, 'r', encoding='utf-8') as f:
+                        mfn_data = json.load(f)
+                    
+                    logger.debug(f"Loaded MFN data: {mfn_data}")
+                    
+                    # --- Construction de la réponse MFN ---
+                    mfn_explanation = """
+Most Favoured Nation (MFN) Tariffs:
+The Most Favoured Nation principle is a key rule of the global trading system under the World Trade Organization (WTO). It means countries cannot normally discriminate between their trading partners when setting tariffs. MFN tariffs are the standard, non-discriminatory rates applied to imports from all WTO members in the absence of a preferential trade agreement.
+(See: https://www.wto.org/english/thewto_e/whatis_e/tif_e/fact2_e.htm)
+"""
+                    # 2. Données spécifiques extraites
+                    duties_info = mfn_data.get("duties", [])
+                    notes_info = mfn_data.get("notes", [])
+                    
+                    specific_duty_text = ""
+                    if duties_info:
+                        duty_lines = [f"  - Rate: {duty.get('rate', 'N/A')}, Type: {duty.get('type', 'N/A')}" for duty in duties_info]
+                        specific_duty_text = "Specific MFN tariff information found:\n" + "\n".join(duty_lines)
+                    else:
+                        specific_duty_text = "No specific MFN tariff rate was found for this product."
+
+                    notes_text = ""
+                    if notes_info:
+                        notes_lines = [f"  - Note: {note}" for note in notes_info[:3]] 
+                        notes_text = "\nAdditional notes:\n" + "\n".join(notes_lines)
+
+                    # 3. Conclusion
+                    conclusion = "\n\nConclusion: No regional trade agreements or preferential trade arrangements are currently in force for this specific trade route (Morocco to China) and product (Saffron/0910). The MFN rate is the applicable tariff."
+
+                    # Assembler la réponse finale
+                    final_answer = f"{mfn_explanation}\n{specific_duty_text}{notes_text}{conclusion}"
+                    
+                    logger.info("Generated answer based on MFN data.")
+                    return {"final_answer": final_answer}
+                    
+                except Exception as e:
+                    logger.error(f"Error processing MFN data file: {e}")
+                    # Fallback si erreur de lecture/parse
+                    return {"final_answer": "I couldn't find any specific trade documents or tariff information for this route and product."}
+            else:
+                logger.info("No MFN data file found.")
+                # Fallback si pas de fichier MFN
+                return {"final_answer": "I couldn't find any specific trade documents for the selected countries and product. This might mean there is no preferential trade agreement, or the information is not available in the database I searched."}
+        
+        # Si le retriever est disponible, procéder normalement
         analyzer = LegalDocumentAnalyzer(vsm.get_retriever(), config)
         answer = analyzer.ask(user_question)
         logger.info("RAG query successful.")
@@ -437,37 +368,6 @@ def query_rag(state: Dict[str, Any]) -> Dict[str, Any]:
         return {"final_answer": f"Sorry, I encountered an error while searching the documents: {str(e)}"}
 
 # --- Fonction utilitaire pour décider de la prochaine étape ---
-'''
-def route_based_on_extraction(state: Dict[str, Any]) -> str:
-    #Décide de la prochaine étape après l'extraction.
-    # 1. Vérifier les erreurs explicites
-    if state.get("error"):
-        logger.warning(f"Routing to END due to error in state: {state['error']}")
-        return "error" # Cela suppose un nœud 'error' ou un END défini dans le workflow
-
-    # 2. Obtenir les infos extraites
-    extracted_info = state.get("extracted_info", {})
-    
-    # 3. Validation stricte des informations critiques
-    exporter = extracted_info.get("exporter", "").strip()
-    importer = extracted_info.get("importer", "").strip()
-    # Prioriser le HS code, sinon le produit
-    product_or_hs = (extracted_info.get("hs_code", "") or extracted_info.get("product", "")).strip()
-
-    if exporter and importer and product_or_hs:
-        logger.info(f"Routing to 'scrape': exporter={exporter}, importer={importer}, product/hs={product_or_hs}")
-        return "scrape"
-    else:
-        # Information insuffisante extraite
-        logger.info(f"Routing to END: Insufficient information extracted. Exporter='{exporter}', Importer='{importer}', Product/HS='{product_or_hs}'")
-        # Option 1: Arrêter et demander plus d'info (moins idéal sans boucle de clarification)
-        # Option 2: Retenter l'extraction ? (compliqué sans logique complexe)
-        # Pour l'instant, on arrête et on informe l'utilisateur via la réponse finale.
-        # Vous pouvez créer un nœud 'ask_for_clarification' ici si vous implémentez cette logique.
-        return "error" # Ou END si vous mappez "error" -> END dans le workflow
-'''
-
-# --- Fonction de routage mise à jour ---
 def route_based_on_extraction(state: Dict[str, Any]) -> str:
     """
     Décide de la prochaine étape après l'extraction.
@@ -485,7 +385,7 @@ def route_based_on_extraction(state: Dict[str, Any]) -> str:
     importer = extracted_info.get("importer", "").strip()
     product_or_hs = (extracted_info.get("hs_code", "") or extracted_info.get("product", "")).strip()
 
-    # 3. Nouvelle logique de routage basée sur le statut
+    # 3.Logique de routage basée sur le statut
     if status in ["complete", "partial_but_usable"]:
         # Même si partiel, on tente de continuer
         logger.info(f"Routing to 'scrape': exporter={exporter}, importer={importer}, product/hs={product_or_hs}")
@@ -502,13 +402,132 @@ def route_after_scraping(state: Dict[str, Any]) -> str:
     status = state.get("scraping_status", "")
     if "Successfully" in status:
         return "update_rag"
-    return "error" # Ou retourner à l'extraction si on veut réessayer?
+    return "error"
 
 def route_after_rag_update(state: Dict[str, Any]) -> str:
     """
     Décide de la prochaine étape après la mise à jour du RAG.
     """
+    # Obtenir le statut de la mise à jour
     status = state.get("rag_update_status", "")
-    if "updated" in status:
+    logger.debug(f"RAG update status received: '{status}'")
+    
+    # Accepter plusieurs indicateurs de succès
+    # Même si aucun document n'a été trouvé, c'est une mise à jour "complète" (même si vide).
+    if "updated" in status.lower() or "no documents" in status.lower() or "warning" in status.lower():
+        logger.info("Routing to 'query_rag' as RAG process (with or without docs) is complete.")
         return "query_rag"
-    return "error"
+    else:
+        logger.info(f"Routing to END due to unexpected RAG update status: '{status}'")
+        # Vous pouvez aussi router vers un nœud d'erreur personnalisé ici
+        return "error" # ou "END"
+
+def generate_final_response(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Génère la réponse finale en se basant sur l'état complet du workflow.
+    Inclut maintenant les références aux documents avec des liens.
+    """
+    logger.info("Generating final response based on workflow state...")
+    
+    user_question = state.get("user_query", "")
+    rag_docs_count = state.get("rag_documents_count", 0)
+    mfn_available = state.get("mfn_data_available", False)
+    
+    # --- Charger les URLs scrapées ---
+    scraped_urls_data = []
+    scraped_urls_file = "data/scraped_urls.json"
+    if os.path.exists(scraped_urls_file):
+        try:
+            with open(scraped_urls_file, 'r', encoding='utf-8') as f:
+                scraped_urls_data = json.load(f)
+            logger.debug(f"Loaded {len(scraped_urls_data)} scraped URLs for referencing.")
+        except Exception as e:
+            logger.error(f"Failed to load scraped URLs for final response: {e}")
+    
+    # --- Fonction utilitaire pour formater les références ---
+    def format_references(urls_data):
+        if not urls_data:
+            return ""
+        references = "\n\n**References / Source Documents:**\n"
+        for i, item in enumerate(urls_data, start=1):
+            url = item.get("original_url", "").strip()
+            # Utiliser le nom du fichier de l'URL comme texte du lien
+            link_text = os.path.basename(url) if url else "Document"
+            if url:
+                # Format Markdown pour un lien cliquable
+                references += f"{i}. [{link_text}]({url})\n"
+            else:
+                references += f"{i}. {link_text} (URL not available)\n"
+        return references
+
+    # --- Vérifier RAG en premier, puis MFN ---
+    if rag_docs_count > 0:
+        logger.debug("RAG documents found, querying RAG...")
+        try:
+            from retrieval.vector_store import VectorStoreManager
+            from core.analyzer import LegalDocumentAnalyzer
+            import config
+            
+            vsm = VectorStoreManager(config)
+            vsm.build_or_load_store([])
+            if vsm.ensemble_retriever:
+                analyzer = LegalDocumentAnalyzer(vsm.get_retriever(), config)
+                answer = analyzer.ask(user_question)
+
+                references_section = format_references(scraped_urls_data)
+                final_answer = answer + references_section
+
+                logger.info("RAG query successful.")
+                return {"final_answer": final_answer}
+            else:
+                raise Exception("RAG retriever not available after update.")
+        except Exception as e:
+            logger.error(f"Error querying RAG in final response node: {e}")
+           
+    
+    # Si pas de RAG ou erreur RAG, vérifier MFN
+    if mfn_available:
+        logger.debug("No RAG docs or RAG failed, but MFN data is available.")
+        mfn_data_file = "data/mfn_data.json"
+        try:
+            with open(mfn_data_file, 'r', encoding='utf-8') as f:
+                mfn_data = json.load(f)
+            
+            # --- Construction de la réponse MFN ---
+            mfn_explanation = (
+                "Most Favoured Nation (MFN) Tariffs apply in the absence of a preferential trade agreement. "
+                "The MFN rate is the standard tariff based on WTO principles "
+                "([WTO Fact Sheet on MFN](https://www.wto.org/english/thewto_e/whatis_e/tif_e/fact2_e.htm))."
+            )
+            duties_info = mfn_data.get("duties", [])
+            specific_duty_text = "No specific MFN rate found." 
+            if duties_info:
+                 duty = duties_info[0] # Prendre le premier taux trouvé
+                 specific_duty_text = f"MFN Rate Found: **{duty.get('rate', 'N/A')}** ({duty.get('type', 'N/A')})"
+
+            conclusion = (
+                "\n\n**Conclusion:** No preferential trade agreements are currently in force for this "
+                "specific trade route (based on the search) and product. The MFN rate is the applicable tariff."
+            )
+            
+            # --- Inclure les références aussi pour le cas MFN ---
+            references_section = format_references(scraped_urls_data) 
+            
+            final_answer = f"{mfn_explanation}\n\n{specific_duty_text}{conclusion}{references_section}"
+            
+            logger.info("Generated answer based on MFN data.")
+            return {"final_answer": final_answer}
+            
+        except Exception as e:
+            logger.error(f"Error processing MFN data in final response node: {e}")
+
+    logger.info("No RAG docs, no MFN data, or errors occurred. Generating default response.")
+    default_answer = (
+        "I couldn't find specific trade documents or tariff information for this route and product. "
+        "This might be due to no preferential agreement being found or data unavailability."
+    )
+   
+    references_section = format_references(scraped_urls_data)
+    final_answer = default_answer + references_section
+    
+    return {"final_answer": final_answer}

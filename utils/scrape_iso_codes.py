@@ -12,7 +12,7 @@ def scrape_iso_codes(url: str, output_filename: str):
         output_filename (str): The name of the output CSV file.
     """
     print(f"Fetching data from: {url}")
-     # --- ADD THIS PART: Define headers ---
+     # --- Define headers ---
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36'
         # Using a common Chrome browser user agent string
@@ -22,7 +22,7 @@ def scrape_iso_codes(url: str, output_filename: str):
     try:
         # 1. Fetch the webpage content WITH HEADERS
         response = requests.get(url, headers=headers) 
-        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+        response.raise_for_status()  # Raise an exception for bad status codes
         print("Page fetched successfully.")
 
         # 2. Parse the HTML content
@@ -57,17 +57,17 @@ def scrape_iso_codes(url: str, output_filename: str):
                 code_span = cells[0].find('span', {'class': 'monospaced'})
                 code = code_span.text.strip() if code_span else cells[0].text.strip()
 
-                # Extract country name (text content of the link in the second cell)
+                # Extract country name
                 # The country name is inside an <a> tag within the second cell
                 name_link = cells[1].find('a')
                 name = name_link.text.strip() if name_link else cells[1].text.strip()
 
-                # Optional: Extract notes (text content of the third cell, if it exists)
+                # Optional: Extract notes
                 # notes = cells[2].text.strip() if len(cells) > 2 else ""
 
                 # Append the extracted data as a tuple/list
-                data.append([code, name]) # We only save Code and Name for now
-                # data.append([code, name, notes]) # Uncomment if you want notes too
+                data.append([code, name]) 
+                # data.append([code, name, notes])
 
         print(f"Extracted {len(data)} country entries.")
 
@@ -76,9 +76,8 @@ def scrape_iso_codes(url: str, output_filename: str):
             with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
                 # Write header row
-                writer.writerow(['Code', 'Country Name']) # Adjust header if including notes
+                writer.writerow(['Code', 'Country Name'])
                 # writer.writerow(['Code', 'Country Name', 'Notes'])
-                # Write data rows
                 writer.writerows(data)
 
             print(f"Data successfully saved to '{output_filename}'")
@@ -88,11 +87,9 @@ def scrape_iso_codes(url: str, output_filename: str):
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching the webpage: {e}")
-    except Exception as e: # Catch other potential errors during parsing/writing
+    except Exception as e: 
         print(f"An error occurred during scraping or file writing: {e}")
 
-
-# --- Main Execution ---
 if __name__ == "__main__":
     WIKI_URL = "https://en.wikipedia.org/wiki/ISO_3166-1_numeric"
     OUTPUT_FILE = "data/csv/iso_country_codes.csv"
