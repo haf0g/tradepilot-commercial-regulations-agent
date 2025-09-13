@@ -129,3 +129,6 @@ N'hésitez pas si vous voulez ajouter des détails spécifiques sur des choix te
 
 **Author** :
 > Hafid GARHOUM - Big Data Engineering Student - ENSA
+
+**Collaborator** :
+> Abdelmoughit AKKAD - M2 Finance et Data Science - UH2 
