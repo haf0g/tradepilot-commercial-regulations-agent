@@ -127,8 +127,12 @@ N'hésitez pas si vous voulez ajouter des détails spécifiques sur des choix te
 **Internship accomplished at**  :
 > Peaqock Financials
 
-**Author** :
-> Hafid GARHOUM - Big Data Engineering Student - ENSA
+## 👨‍💻 Author  
+**[Hafid GARHOUM](https://www.linkedin.com/in/hafid-garhoum/)**  
+*Big Data Engineering Student - ENSA*
 
-**Collaborator** :
-> Abdelmoughit AKKAD - M2 Finance et Data Science - UH2 
+---
+
+## 🤝 Collaborator  
+**[Abdelmoughit AKKAD](https://www.linkedin.com/in/abdelmoughit-akkad-b381b7244/?originalSubdomain=ma)**  
+*M2 Finance et Data Science - UH2*
