@@ -58,6 +58,11 @@ pip install -r requirements.txt
 # or on Linux/macOS
 pip3 install -r requirements.txt
 ```
+Next Step is installing the browser used by _playwright_ for scraping and automation :
+
+```bash
+playwright install
+```
 
 ### 2. Configure
 
