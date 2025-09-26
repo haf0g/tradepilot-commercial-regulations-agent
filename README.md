@@ -3,6 +3,9 @@
 
 ## Overview
 
+![draw io-digramme-architecture du projet](https://github.com/user-attachments/assets/05b4b727-c65c-4652-a6d9-2f263580eef4)
+
+
 This project, developed as my final year capstone at Peaqock Financials, presents **TradePilot**, an advanced AI-powered assistant designed to simplify access to complex international trade regulations. Unlike traditional static RAG systems, TradePilot leverages an **agentic architecture** powered by **LangGraph**. This allows it to dynamically fetch, process, and analyze relevant trade documents in real-time based on user queries, providing accurate and up-to-date answers without requiring pre-loaded knowledge bases for every possible trade route.
 
 The system integrates seamlessly with the [findrulesoforigin.org](https://findrulesoforigin.org/) platform. When a user asks a question (e.g., "What are the rules of origin for exporting olive oil from Morocco to the USA?"), TradePilot:
