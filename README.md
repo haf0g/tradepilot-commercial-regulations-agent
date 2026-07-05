@@ -3,7 +3,7 @@
 
 ## Overview
 
-<img width="682" height="423" alt="image" src="https://github.com/user-attachments/assets/6fa6069b-f12d-4c94-8483-802f4a1377ed" />
+<img width="1492" height="823" alt="architecture" src="https://github.com/user-attachments/assets/1308dd81-b39e-444b-aad1-6331a9baab20" />
 
 
 This project, developed as my final year capstone at Peaqock Financials, presents **TradePilot**, an advanced AI-powered assistant designed to simplify access to complex international trade regulations. Unlike traditional static RAG systems, TradePilot leverages an **agentic architecture** powered by **LangGraph**. This allows it to dynamically fetch, process, and analyze relevant trade documents in real-time based on user queries, providing accurate and up-to-date answers without requiring pre-loaded knowledge bases for every possible trade route.
